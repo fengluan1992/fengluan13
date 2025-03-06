@@ -1,0 +1,42 @@
+import { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import axios from "axios";
+
+export default function Transcriber() {
+  const [url, setUrl] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleTranscribe = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post("https://your-backend-url.onrender.com/transcribe", { url });
+      setTranscript(response.data.transcript);
+    } catch (error) {
+      console.error("Error transcribing:", error);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4 space-y-4 max-w-lg mx-auto">
+      <h1 className="text-2xl font-bold">TikTok文字起こしツール</h1>
+      <Input
+        placeholder="TikTokの動画URLを入力"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+      />
+      <Button onClick={handleTranscribe} disabled={loading}>
+        {loading ? "変換中..." : "文字起こし開始"}
+      </Button>
+      <Textarea
+        className="w-full h-40"
+        value={transcript}
+        onChange={(e) => setTranscript(e.target.value)}
+        placeholder="ここに文字起こし結果が表示されます"
+      />
+    </div>
+  );
+}
