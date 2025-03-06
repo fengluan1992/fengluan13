@@ -1,0 +1,71 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import subprocess
+import os
+import whisper
+import yt_dlp
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# CORS設定（フロントエンドとの接続）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ディレクトリ設定
+DOWNLOAD_DIR = "downloads"
+if not os.path.exists(DOWNLOAD_DIR):
+    os.makedirs(DOWNLOAD_DIR)
+
+# 入力データモデル
+class VideoURL(BaseModel):
+    url: str
+
+@app.post("/transcribe")
+def transcribe_video(video: VideoURL):
+    try:
+        # 動画をダウンロード
+        video_path = download_video(video.url)
+        
+        # 音声を抽出
+        audio_path = extract_audio(video_path)
+        
+        # 文字起こし
+        transcript = transcribe_audio(audio_path)
+        
+        return {"transcript": transcript}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def download_video(url: str) -> str:
+    """TikTok動画をダウンロード"""
+    output_path = os.path.join(DOWNLOAD_DIR, "video.mp4")
+    ydl_opts = {
+        'outtmpl': output_path,
+        'format': 'mp4'
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([url])
+    return output_path
+
+
+def extract_audio(video_path: str) -> str:
+    """動画から音声を抽出"""
+    audio_path = video_path.replace(".mp4", ".mp3")
+    command = ["ffmpeg", "-i", video_path, "-q:a", "0", "-map", "a", audio_path]
+    subprocess.run(command, check=True)
+    return audio_path
+
+
+def transcribe_audio(audio_path: str) -> str:
+    """Whisperで音声を書き起こす"""
+    model = whisper.load_model("base")
+    result = model.transcribe(audio_path)
+    return result["text"]
